@@ -1,0 +1,6 @@
+# sensitive files
+cloudflare.ini
+
+# temporary files
+cloudflare_access_rules.txt
+cloudflare_access_rules.txt-response
