@@ -318,7 +318,6 @@ download_access_rules() {
 add_access_rules() {
   # Declare local variables
   local input_file
-  local input_file_name
   local cloudflare_account_id
   local cloudflare_api_key
   local cloudflare_config_file
@@ -327,7 +326,6 @@ add_access_rules() {
 
   # Initialize local variables
   input_file="${*}"
-  input_file_name="$(basename "${input_file}")"
   cloudflare_account_id=""
   cloudflare_api_key=""
   cloudflare_config_file="${PWD}/cloudflare.ini"
@@ -415,7 +413,7 @@ add_access_rules() {
           -X POST "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/firewall/access_rules/rules" \
           -H "Authorization: Bearer ${CLOUDFLARE_API_KEY}" \
           -H "Content-Type: application/json" \
-          --data '{"mode":"block","configuration":{"target":"asn","value":"AS'"${currentASN}"'"},"notes":"Script['"${input_file_name}"']: '"${currentEntity}"'"}' \
+          --data '{"mode":"block","configuration":{"target":"asn","value":"AS'"${currentASN}"'"},"notes":"Script: '"${currentEntity}"'"}' \
           | grep "\"success\": true" \
           &> /dev/null; then
           # Error adding missing access rule
