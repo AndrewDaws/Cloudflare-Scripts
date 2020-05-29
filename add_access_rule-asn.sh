@@ -396,7 +396,7 @@ add_access_rules() {
   fi
 
   # Access rules file exists and is not empty
-  while read currentLine; do
+  while read currentLine || [ -n "${currentLine}" ]; do
     # Load ASN from current line
     currentASN="$( echo "${currentLine}" | grep -o -P '^[^,]+' | grep -o -P '[0-9]+' )"
 
