@@ -132,6 +132,8 @@ download_access_rules() {
     rm -f "${output_file}-response"
     if ! curl \
       --silent \
+      --connect-timeout 5 \
+      --max-time 5 \
       -X GET "https://${cloudflare_api_url}/client/v4/accounts/${cloudflare_account_id}/firewall/access_rules/rules?page=${current_page}&per_page=${current_per_page}&mode=block&configuration.target=asn" \
       -H "Authorization: Bearer ${cloudflare_api_key}" \
       -H "Content-Type: application/json" \
@@ -228,7 +230,7 @@ download_access_rules() {
         # Error page mismatch
         rm -f "${output_file}"
         rm -f "${output_file}-response"
-        abort_script "Cloudflare access rules processing error" "Response and expected page values do not match!"
+        abort_script "Cloudflare access rules processing error" "Response [${response_page}] and expected [${current_page}] page values do not match!"
       fi
 
       # Check if response per page equals current per page value
@@ -236,7 +238,7 @@ download_access_rules() {
         # Error per page mismatch
         rm -f "${output_file}"
         rm -f "${output_file}-response"
-        abort_script "Cloudflare access rules processing error" "Response and expected per page values do not match!"
+        abort_script "Cloudflare access rules processing error" "Response [${response_per_page}] and expected [${current_per_page}] per page values do not match!"
       fi
 
       # Check if response total count equals current total count value
@@ -244,7 +246,7 @@ download_access_rules() {
         # Error total count mismatch
         rm -f "${output_file}"
         rm -f "${output_file}-response"
-        abort_script "Cloudflare access rules processing error" "Response and expected total count do not match!"
+        abort_script "Cloudflare access rules processing error" "Response [${response_total_count}] and expected [${current_total_count}] total count do not match!"
       fi
 
       # Check if response total pages equals current total pages value
@@ -252,7 +254,7 @@ download_access_rules() {
         # Error total pages mismatch
         rm -f "${output_file}"
         rm -f "${output_file}-response"
-        abort_script "Cloudflare access rules processing error" "Response and expected total pages do not match!"
+        abort_script "Cloudflare access rules processing error" "Response [${response_total_pages}] and expected [${current_total_pages}] total pages do not match!"
       fi
     fi
 
@@ -276,15 +278,21 @@ download_access_rules() {
       # Error count overflow
       rm -f "${output_file}"
       rm -f "${output_file}-response"
-      abort_script "Cloudflare access rules processing error" "Expected count is greater than expected total!"
+      abort_script "Cloudflare access rules processing error" "Expected [${current_count}] count is greater than expected [${current_total_count}] total!"
     fi
 
     # Check if current page is greater than current total pages value
     if [[ "${current_page}" -gt "${current_total_pages}" ]]; then
-      # Error page overflow
-      rm -f "${output_file}"
-      rm -f "${output_file}-response"
-      abort_script "Cloudflare access rules processing error" "Expected page is greater than expected total!"
+      # Check if current total pages value is zero
+      if [[ "${current_total_pages}" -ne "0" ]]; then
+        # Check if current page value is one
+        if [[ "${current_page}" -ne "1" ]]; then
+          # Error page overflow
+          rm -f "${output_file}"
+          rm -f "${output_file}-response"
+          abort_script "Cloudflare access rules processing error" "Expected [${current_page}] page is greater than expected [${current_total_pages}] total!"
+        fi
+      fi
     fi
 
     # Merge response data into single output file
@@ -298,11 +306,14 @@ download_access_rules() {
       abort_script "Cloudflare access rules processing error" "Access rules file does not exist!"
     fi
 
-    # Check if parsed response info is not empty
-    if [[ ! -s "${output_file}" ]]; then
-      # Error empty response info
-      rm -f "${output_file}"
-      abort_script "Cloudflare access rules processing error" "Access rules file is empty!"
+    # Check if response total count value is zero
+    if [[ "${response_total_count}" -ne "0" ]]; then
+      # Check if parsed response info is not empty
+      if [[ ! -s "${output_file}" ]]; then
+        # Error empty response info
+        rm -f "${output_file}"
+        abort_script "Cloudflare access rules processing error" "Access rules file is empty!"
+      fi
     fi
 
     # Check if actual count equals response count value
@@ -410,6 +421,8 @@ add_access_rules() {
         # Add missing ASN to Cloudflare access rules
         if ! curl \
           --silent \
+          --connect-timeout 5 \
+          --max-time 5 \
           -X POST "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/firewall/access_rules/rules" \
           -H "Authorization: Bearer ${CLOUDFLARE_API_KEY}" \
           -H "Content-Type: application/json" \
