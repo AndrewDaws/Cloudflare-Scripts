@@ -1,5 +1,25 @@
 #!/bin/bash
 
+exit_script() {
+  # Declare local variables
+  local return_code
+
+  # Initialize local variables
+  return_code="1"
+
+  # Input parameter provided
+  if [[ -n "${1}" ]]; then
+    # Check against valid return codes
+    if [[ "${1}" -eq 0 || "${1}" -eq 1 ]]; then
+      # Overwrite return code
+      return_code="${1}"
+    fi
+  fi
+
+  # Exit script with return code
+  exit "${return_code}"
+}
+
 abort_script() {
   # Declare local variables
   local script_name
@@ -9,39 +29,96 @@ abort_script() {
 
   # Print error message
   echo "Aborting ${script_name}"
+  
   # Check for error messages
   if [[ -n "${*}" ]]; then
-    # Treat each input parameter as a separate error line
-    for error_msg in "${@}"
-    do
+    # Treat each input parameter as a separate line
+    for error_msg in "${@}"; do
       echo "  ${error_msg}"
     done
   fi
 
-  # Exit script with return code
-  exit 1
+  # Exit script with error
+  exit_script "1"
 }
 
-check_connectivity() {
-  # Declare local variables
-  local test_ip
-  local test_count
-
-  # Initialize local variables
-  test_count="1"
-  if [[ -n "${1}" ]]; then
-    test_ip="${1}"
-  else
-    test_ip="8.8.8.8"
-  fi
-
-  # Test connectivity
-  if ping -c "${test_count}" "${test_ip}" &> /dev/null; then
+is_installed() {
+  # Returns 0 if application is installed or error if it is not
+  if which "${1}" | grep -o "${1}" > /dev/null; then
     return 0
   else
     return 1
   fi
- }
+}
+
+check_connectivity() {
+  # Declare local variables
+  local test_address
+  local test_count
+  local test_timeout
+  local return_code
+
+  # Initialize local variables
+  if [[ -n "${1}" ]]; then
+    test_address="${1}"
+  else
+    test_address="8.8.8.8"
+  fi
+  test_count="1"
+  test_timeout="5"
+  return_code="-1"
+
+  # Test connectivity with ping
+  # Check if ping is installed
+  if is_installed ping; then
+    if ping \
+      -c "${test_count}" \
+      "${test_address}" \
+      &> /dev/null; then
+      return_code="0"
+    else
+      return_code="1"
+    fi
+  fi
+
+  # Test connectivity with wget if not previously successful
+  if [[ "${return_code}" -ne 0 ]]; then
+    # Check if wget is installed
+    if is_installed wget; then
+      if wget \
+        --quiet \
+        --timeout="${test_timeout}" \
+        --tries="${test_count}" \
+        --spider \
+        "${test_address}" \
+        &> /dev/null; then
+        return_code="0"
+      else
+        return_code="1"
+      fi
+    fi
+  fi
+
+  # Test connectivity with curl if not previously successful
+  if [[ "${return_code}" -ne 0 ]]; then
+    # Check if curl is installed
+    if is_installed curl; then
+      if curl \
+        --silent \
+        --connect-timeout "${test_timeout}" \
+        --max-time "${test_timeout}" \
+        "${test_address}" \
+        &> /dev/null; then
+        return_code="0"
+      else
+        return_code="1"
+      fi
+    fi
+  fi
+
+  # Return 0 if connected, 1 if not connected, or -1 if no tools installed
+  return "${return_code}"
+}
 
 # Download access rules
 download_access_rules() {
@@ -109,12 +186,6 @@ download_access_rules() {
   if [[ -z "${cloudflare_api_key}" ]]; then
     # Error finding Cloudflare API key
     abort_script "Cloudflare access rules download error" "Failed to find API key!"
-  fi
-
-  # Check internet connectivity
-  if ! check_connectivity; then
-    # Error checking internet connectivity
-    abort_script "Cloudflare access rules download error" "No internet connection!"
   fi
 
   # Check if Cloudflare domain is valid and accessible
@@ -392,12 +463,6 @@ add_access_rules() {
   if [[ -z "${cloudflare_api_key}" ]]; then
     # Error finding Cloudflare API key
     abort_script "Cloudflare access rules upload error" "Failed to find API key!"
-  fi
-
-  # Check internet connectivity
-  if ! check_connectivity; then
-    # Error checking internet connectivity
-    abort_script "Cloudflare access rules upload error" "No internet connection!"
   fi
 
   # Check if Cloudflare domain is valid and accessible
