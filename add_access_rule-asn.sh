@@ -20,15 +20,33 @@ exit_script() {
   exit "${return_code}"
 }
 
-abort_script() {
+script_filename() {
   # Declare local variables
-  local script_name
+  local output_filename
 
   # Initialize local variables
-  script_name="$(basename "${0}")"
+  output_filename="$(basename "${0}")"
+
+  # Return script filename
+  echo "${output_filename}"
+}
+
+abort_script() {
+  # Declare local variables
+  local calling_function
+
+  # Initialize local variables
+  calling_function="${FUNCNAME[1]}"
+
+  # Replace calling function name when helper function used
+  if [[ "${calling_function}" == "abort_*" ]]; then
+    calling_function="${FUNCNAME[2]}"
+  fi
 
   # Print error message
-  echo "Aborting ${script_name}"
+  echo ""
+  print_stage "Aborting execution of $(script_filename)"
+  echo "Error in function ${calling_function}:"
   
   # Check for error messages
   if [[ -n "${*}" ]]; then
@@ -43,8 +61,14 @@ abort_script() {
 }
 
 is_installed() {
+  # Declare local variables
+  local input_application
+
+  # Initialize local variables
+  input_application="${1}"
+
   # Returns 0 if application is installed or error if it is not
-  if which "${1}" | grep -o "${1}" > /dev/null; then
+  if which "${input_application}" | grep -o "${input_application}" > /dev/null; then
     return 0
   else
     return 1
